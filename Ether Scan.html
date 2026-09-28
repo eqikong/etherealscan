@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b0b0d" />
+  <title>Pindai — Scanner Dokumen</title>
+  <style>
+    :root {
+      --bg: #0b0b0d;
+      --panel: #141416;
+      --panel-2: #1c1c20;
+      --line: #2a2a30;
+      --text: #f3efe6;
+      --muted: #9a958c;
+      --accent: #e23b2e;
+      --accent-2: #3dd68c;
+      --warn: #e8b84a;
+      --handle: #ffffff;
+      --quad: rgba(226, 59, 46, 0.92);
+      --safe: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
+    body { display: flex; flex-direction: column; overflow: hidden; }
+    header.appbar {
+      flex: 0 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px calc(10px + env(safe-area-inset-top, 0px));
+      padding-top: calc(12px + env(safe-area-inset-top, 0px));
+      border-bottom: 1px solid var(--line);
+      background: var(--bg);
+      z-index: 5;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: 0.04em; }
+    .mark {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: var(--accent); display: grid; place-items: center;
+      font-size: 13px; font-weight: 800; color: #fff;
+    }
+    .sub { font-size: 11px; color: var(--muted); font-weight: 500; letter-spacing: 0.02em; }
+    .icon-btn, .btn {
+      border: 0; background: var(--panel-2); color: var(--text);
+      border-radius: 12px; min-height: 44px; padding: 0 14px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .icon-btn { width: 44px; padding: 0; display: grid; place-items: center; }
+    .btn.primary { background: var(--accent); color: #fff; }
+    .btn.good { background: var(--accent-2); color: #062016; }
+    .btn.ghost { background: transparent; border: 1px solid var(--line); }
+    .btn:disabled { opacity: 0.45; }
+    main { flex: 1; min-height: 0; position: relative; }
+    screen { display: none; position: absolute; inset: 0; flex-direction: column; }
+    screen.active { display: flex; }
+
+    /* HOME */
+    .home-body { flex: 1; overflow: auto; padding: 16px 16px 24px; }
+    .hero {
+      background: linear-gradient(180deg, #1a1212 0%, var(--panel) 100%);
+      border: 1px solid var(--line); border-radius: 18px; padding: 18px;
+      margin-bottom: 14px;
+    }
+    .hero h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: -0.02em; }
+    .hero p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0 8px; }
+    .actions .btn { min-height: 52px; font-size: 15px; }
+    .hint { font-size: 12px; color: var(--muted); line-height: 1.45; margin: 8px 0 18px; }
+    .pages-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .pages-head h2 { margin: 0; font-size: 14px; font-weight: 700; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .page-card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+      position: relative;
+    }
+    .page-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; background: #000; }
+    .page-card .meta { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; font-size: 12px; color: var(--muted); }
+    .page-card .del {
+      position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%;
+      border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 16px;
+    }
+    .empty { color: var(--muted); font-size: 13px; text-align: center; padding: 28px 10px; border: 1px dashed var(--line); border-radius: 14px; }
+    .dock {
+      flex: 0 0 auto; padding: 10px 16px calc(12px + var(--safe));
+      display: flex; gap: 8px; border-top: 1px solid var(--line); background: var(--bg);
+    }
+    .dock .btn { flex: 1; }
+
+    /* EDITOR */
+    .stage-wrap { flex: 1; min-height: 0; position: relative; background: #050506; }
+    #stage {
+      position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+      touch-action: none;
+    }
+    .editor-tools {
+      flex: 0 0 auto; padding: 10px 12px calc(12px + var(--safe));
+      background: var(--bg); border-top: 1px solid var(--line);
+    }
+    .row { display: flex; gap: 8px; }
+    .row .btn { flex: 1; }
+    .tiny { font-size: 11px; color: var(--muted); text-align: center; margin: 8px 0 0; }
+
+    /* PREVIEW */
+    .preview-body { flex: 1; min-height: 0; overflow: auto; background: #111; display: flex; align-items: flex-start; justify-content: center; padding: 12px; }
+    .preview-body img, .preview-body canvas { max-width: 100%; height: auto; box-shadow: 0 10px 40px rgba(0,0,0,.45); background: #fff; }
+    .modes { display: flex; gap: 6px; padding: 10px 12px 0; }
+    .chip {
+      flex: 1; min-height: 40px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--panel); color: var(--text); font-weight: 600; font-size: 12px;
+    }
+    .chip.on { background: var(--text); color: #111; border-color: var(--text); }
+
+    .toast {
+      position: fixed; left: 50%; bottom: calc(24px + var(--safe)); transform: translateX(-50%);
+      background: #fff; color: #111; padding: 10px 14px; border-radius: 999px;
+      font-size: 13px; font-weight: 600; display: none; z-index: 20; white-space: nowrap;
+    }
+    .busy {
+      position: absolute; inset: 0; background: rgba(0,0,0,.55); display: none;
+      align-items: center; justify-content: center; flex-direction: column; gap: 10px; z-index: 15;
+      color: #fff; font-size: 14px;
+    }
+    .busy.on { display: flex; }
+    .spin { width: 28px; height: 28px; border: 3px solid #444; border-top-color: #fff; border-radius: 50%; animation: r .8s linear infinite; }
+    @keyframes r { to { transform: rotate(360deg); } }
+    hidden-file { display: none; }
+  </style>
+</head>
+<body>
+  <header class="appbar">
+    <div class="brand">
+      <div class="mark">P</div>
+      <div>
+        <div>PINDAI</div>
+        <div class="sub" id="statusLine">Scanner dokumen offline</div>
+      </div>
+    </div>
+    <button class="icon-btn" id="helpBtn" title="Bantuan">?</button>
+  </header>
+
+  <main>
+    <screen id="home" class="active">
+      <div class="home-body">
+        <div class="hero">
+          <h1>Scan dokumen dari HP</h1>
+          <p>Ambil foto, deteksi otomatis, geser 4 sudut kalau miring, lalu simpan hasil yang sudah rata.</p>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="btnCamera">Ambil Foto</button>
+          <button class="btn" id="btnGallery">Dari Galeri</button>
+        </div>
+        <p class="hint">File HTML ini cukup disalin ke HP mana saja lalu dibuka di Chrome / Safari. Foto tidak dikirim ke server — semua diproses di HP.</p>
+        <div class="pages-head">
+          <h2>Halaman (<span id="pageCount">0</span>)</h2>
+          <button class="btn ghost" id="btnClear" style="min-height:36px;font-size:12px">Hapus semua</button>
+        </div>
+        <div id="pageGrid" class="grid"></div>
+        <div id="emptyPages" class="empty">Belum ada halaman. Ambil foto dokumen untuk mulai.</div>
+      </div>
+      <div class="dock">
+        <button class="btn" id="btnSaveLast" disabled>Unduh terakhir</button>
+        <button class="btn good" id="btnPdf" disabled>Ekspor PDF</button>
+      </div>
+    </screen>
+
+    <screen id="editor">
+      <div class="stage-wrap">
+        <canvas id="stage"></canvas>
+        <div class="busy" id="detectBusy"><div class="spin"></div><div>Mendeteksi dokumen…</div></div>
+      </div>
+      <div class="editor-tools">
+        <div class="row">
+          <button class="btn" id="btnRedetect">Deteksi ulang</button>
+          <button class="btn ghost" id="btnResetQuad">Reset sudut</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn ghost" id="btnCancelEdit">Batal</button>
+          <button class="btn primary" id="btnApply">Terapkan crop</button>
+        </div>
+        <p class="tiny">Geser 4 titik putih ke sudut kertas. Pinch tidak perlu — cukup geser titik.</p>
+      </div>
+    </screen>
+
+    <screen id="preview">
+      <div class="modes">
+        <button class="chip on" data-mode="color">Warna</button>
+        <button class="chip" data-mode="paper">Kertas</button>
+        <button class="chip" data-mode="bw">Hitam putih</button>
+      </div>
+      <div class="preview-body"><canvas id="out"></canvas></div>
+      <div class="editor-tools">
+        <div class="row">
+          <button class="btn ghost" id="btnBackEdit">Ubah sudut</button>
+          <button class="btn primary" id="btnKeep">Simpan halaman</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="btnDownloadOne">Unduh JPG</button>
+          <button class="btn" id="btnShare">Bagikan</button>
+        </div>
+      </div>
+    </screen>
+  </main>
+
+  <div class="toast" id="toast"></div>
+  <input id="fileCam" type="file" accept="image/*" capture="environment" hidden />
+  <input id="fileGal" type="file" accept="image/*" hidden />
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const screens = { home: $("home"), editor: $("editor"), preview: $("preview") };
+  const stage = $("stage");
+  const sctx = stage.getContext("2d");
+  const out = $("out");
+  const octx = out.getContext("2d");
+
+  const state = {
+    src: null,          // HTMLCanvasElement full-res source
+    srcW: 0, srcH: 0,
+    corners: [],        // image-space points TL TR BR BL
+    drag: null,
+    mode: "color",
+    warped: null,       // ImageData of color warp
+    pages: [],
+    view: { x: 0, y: 0, scale: 1, dw: 0, dh: 0 }
+  };
+
+  function show(name) {
+    Object.values(screens).forEach((el) => el.classList.remove("active"));
+    screens[name].classList.add("active");
+  }
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.style.display = "block";
+    clearTimeout(toast._id);
+    toast._id = setTimeout(() => { t.style.display = "none"; }, 2200);
+  }
+  function setBusy(on, label) {
+    $("detectBusy").classList.toggle("on", !!on);
+    if (label) $("detectBusy").lastChild.textContent = label;
+  }
+
+  /* ---------------- geometry ---------------- */
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  function orderQuad(pts) {
+    const s = pts.map((p) => ({ p, sum: p.x + p.y, diff: p.y - p.x }));
+    const tl = s.reduce((a, b) => (a.sum < b.sum ? a : b)).p;
+    const br = s.reduce((a, b) => (a.sum > b.sum ? a : b)).p;
+    const tr = s.reduce((a, b) => (a.diff < b.diff ? a : b)).p;
+    const bl = s.reduce((a, b) => (a.diff > b.diff ? a : b)).p;
+    return [tl, tr, br, bl].map((p) => ({ x: p.x, y: p.y }));
+  }
+  function defaultQuad(w, h) {
+    const m = Math.round(Math.min(w, h) * 0.08);
+    return orderQuad([
+      { x: m, y: m }, { x: w - m, y: m },
+      { x: w - m, y: h - m }, { x: m, y: h - m }
+    ]);
+  }
+  function quadArea(q) {
+    let a = 0;
+    for (let i = 0; i < 4; i++) {
+      const p = q[i], n = q[(i + 1) % 4];
+      a += p.x * n.y - n.x * p.y;
+    }
+    return Math.abs(a) / 2;
+  }
+
+  /* ---------------- image load + EXIF ---------------- */
+  async function fileToCanvas(file) {
+    let bmp;
+    try {
+      bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    } catch {
+      const url = URL.createObjectURL(file);
+      const img = await loadImg(url);
+      URL.revokeObjectURL(url);
+      const c = document.createElement("canvas");
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext("2d").drawImage(img, 0, 0);
+      return c;
+    }
+    const c = document.createElement("canvas");
+    c.width = bmp.width; c.height = bmp.height;
+    c.getContext("2d").drawImage(bmp, 0, 0);
+    bmp.close?.();
+    return c;
+  }
+  function loadImg(src) {
+    return new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = src;
+    });
+  }
+
+  /* ---------------- document detection ---------------- */
+  function detectDocument(srcCanvas) {
+    const maxW = 420;
+    const scale = Math.min(1, maxW / srcCanvas.width);
+    const w = Math.max(32, Math.round(srcCanvas.width * scale));
+    const h = Math.max(32, Math.round(srcCanvas.height * scale));
+    const tmp = document.createElement("canvas");
+    tmp.width = w; tmp.height = h;
+    const tctx = tmp.getContext("2d", { willReadFrequently: true });
+    tctx.drawImage(srcCanvas, 0, 0, w, h);
+    const img = tctx.getImageData(0, 0, w, h);
+    const gray = toGray(img);
+    blurInPlace(gray, w, h, 1);
+    const mag = sobelMag(gray, w, h);
+    // emphasize strong edges
+    let max = 0;
+    for (let i = 0; i < mag.length; i++) if (mag[i] > max) max = mag[i];
+    const thr = max * 0.18;
+    const bin = new Uint8Array(w * h);
+    for (let i = 0; i < mag.length; i++) bin[i] = mag[i] > thr ? 1 : 0;
+    dilate(bin, w, h, 1);
+
+    const hull = convexHull(edgePixels(bin, w, h));
+    let quad = null;
+    if (hull.length >= 4) quad = maxAreaQuad(hull);
+    if (quad) {
+      quad = orderQuad(quad).map((p) => ({
+        x: clamp(p.x / scale, 0, srcCanvas.width - 1),
+        y: clamp(p.y / scale, 0, srcCanvas.height - 1)
+      }));
+      const area = quadArea(quad);
+      const frame = srcCanvas.width * srcCanvas.height;
+      if (area < frame * 0.12 || area > frame * 0.98) quad = null;
+    }
+    return quad || defaultQuad(srcCanvas.width, srcCanvas.height);
+  }
+
+  function toGray(img) {
+    const d = img.data, n = img.width * img.height;
+    const g = new Float32Array(n);
+    for (let i = 0, p = 0; i < n; i++, p += 4) {
+      g[i] = d[p] * 0.299 + d[p + 1] * 0.587 + d[p + 2] * 0.114;
+    }
+    return g;
+  }
+  function blurInPlace(g, w, h, r) {
+    const tmp = new Float32Array(g.length);
+    const i1 = 1 / (r * 2 + 1);
+    for (let y = 0; y < h; y++) {
+      let sum = 0;
+      for (let x = -r; x <= r; x++) sum += g[y * w + clampi(x, 0, w - 1)];
+      for (let x = 0; x < w; x++) {
+        tmp[y * w + x] = sum * i1;
+        sum += g[y * w + clampi(x + r + 1, 0, w - 1)] - g[y * w + clampi(x - r, 0, w - 1)];
+      }
+    }
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      for (let y = -r; y <= r; y++) sum += tmp[clampi(y, 0, h - 1) * w + x];
+      for (let y = 0; y < h; y++) {
+        g[y * w + x] = sum * i1;
+        sum += tmp[clampi(y + r + 1, 0, h - 1) * w + x] - tmp[clampi(y - r, 0, h - 1) * w + x];
+      }
+    }
+  }
+  function sobelMag(g, w, h) {
+    const m = new Float32Array(w * h);
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x;
+        const gx = -g[i - w - 1] + g[i - w + 1] - 2 * g[i - 1] + 2 * g[i + 1] - g[i + w - 1] + g[i + w + 1];
+        const gy = -g[i - w - 1] - 2 * g[i - w] - g[i - w + 1] + g[i + w - 1] + 2 * g[i + w] + g[i + w + 1];
+        m[i] = Math.hypot(gx, gy);
+      }
+    }
+    return m;
+  }
+  function dilate(bin, w, h, r) {
+    const out = new Uint8Array(bin.length);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let v = 0;
+        for (let yy = y - r; yy <= y + r && !v; yy++) {
+          if (yy < 0 || yy >= h) continue;
+          for (let xx = x - r; xx <= x + r; xx++) {
+            if (xx < 0 || xx >= w) continue;
+            if (bin[yy * w + xx]) { v = 1; break; }
+          }
+        }
+        out[y * w + x] = v;
+      }
+    }
+    bin.set(out);
+  }
+  function edgePixels(bin, w, h) {
+    const pts = [];
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        if (!bin[y * w + x]) continue;
+        if (!bin[y * w + x - 1] || !bin[y * w + x + 1] || !bin[(y - 1) * w + x] || !bin[(y + 1) * w + x]) {
+          pts.push({ x, y });
+        }
+      }
+    }
+    // downsample points if too many
+    if (pts.length > 800) {
+      const step = Math.ceil(pts.length / 800);
+      return pts.filter((_, i) => i % step === 0);
+    }
+    return pts;
+  }
+  function convexHull(pts) {
+    if (pts.length < 3) return pts.slice();
+    const p = pts.slice().sort((a, b) => a.x === b.x ? a.y - b.y : a.x - b.x);
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const lower = [];
+    for (const pt of p) {
+      while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], pt) <= 0) lower.pop();
+      lower.push(pt);
+    }
+    const upper = [];
+    for (let i = p.length - 1; i >= 0; i--) {
+      const pt = p[i];
+      while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pt) <= 0) upper.pop();
+      upper.push(pt);
+    }
+    lower.pop(); upper.pop();
+    return lower.concat(upper);
+  }
+  function maxAreaQuad(hull) {
+    const n = hull.length;
+    if (n === 4) return hull.slice();
+    let best = null, bestA = -1;
+    // O(n^4) is ok for n ~ 40 after hull
+    const limit = n > 48 ? 48 : n;
+    const step = n > 48 ? Math.ceil(n / 48) : 1;
+    const idx = [];
+    for (let i = 0; i < n; i += step) idx.push(i);
+    const m = idx.length;
+    for (let a = 0; a < m; a++)
+      for (let b = a + 1; b < m; b++)
+        for (let c = b + 1; c < m; c++)
+          for (let d = c + 1; d < m; d++) {
+            const q = [hull[idx[a]], hull[idx[b]], hull[idx[c]], hull[idx[d]]];
+            const oq = orderQuad(q);
+            const area = quadArea(oq);
+            if (area > bestA) { bestA = area; best = oq; }
+          }
+    return best;
+  }
+  function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+  function clampi(v, a, b) { v = v | 0; return v < a ? a : v > b ? b : v; }
+
+  /* ---------------- homography warp ---------------- */
+  function getPerspective(src, dst) {
+    // solve 8x8 for h0..h7, h8=1
+    const A = [];
+    for (let i = 0; i < 4; i++) {
+      const x = src[i].x, y = src[i].y, u = dst[i].x, v = dst[i].y;
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y, u]);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y, v]);
+    }
+    const h = solve(A);
+    return [
+      h[0], h[1], h[2],
+      h[3], h[4], h[5],
+      h[6], h[7], 1
+    ];
+  }
+  function solve(M) {
+    // Gaussian elimination on 8x9
+    const n = 8;
+    const a = M.map((row) => row.slice());
+    for (let col = 0; col < n; col++) {
+      let piv = col;
+      for (let r = col + 1; r < n; r++) if (Math.abs(a[r][col]) > Math.abs(a[piv][col])) piv = r;
+      [a[col], a[piv]] = [a[piv], a[col]];
+      const div = a[col][col] || 1e-12;
+      for (let c = col; c <= n; c++) a[col][c] /= div;
+      for (let r = 0; r < n; r++) if (r !== col) {
+        const f = a[r][col];
+        for (let c = col; c <= n; c++) a[r][c] -= f * a[col][c];
+      }
+    }
+    return a.map((row) => row[n]);
+  }
+  function invert3(H) {
+    const [a,b,c,d,e,f,g,h,i] = H;
+    const A = e*i - f*h, B = c*h - b*i, C = b*f - c*e;
+    const D = f*g - d*i, E = a*i - c*g, F = c*d - a*f;
+    const G = d*h - e*g, I = a*e - b*d, det = a*A + b*D + c*G || 1e-12;
+    return [A/det, B/det, C/det, D/det, E/det, F/det, G/det, (b*g - a*h)/det, I/det];
+  }
+  function applyH(H, x, y) {
+    const w = H[6] * x + H[7] * y + H[8];
+    return { x: (H[0] * x + H[1] * y + H[2]) / w, y: (H[3] * x + H[4] * y + H[5]) / w };
+  }
+
+  function warpToCanvas(srcCanvas, corners, maxSide) {
+    const [tl, tr, br, bl] = orderQuad(corners);
+    let outW = Math.max(dist(tl, tr), dist(bl, br));
+    let outH = Math.max(dist(tl, bl), dist(tr, br));
+    const k = Math.min(1, maxSide / Math.max(outW, outH));
+    outW = Math.max(80, Math.round(outW * k));
+    outH = Math.max(80, Math.round(outH * k));
+    const dst = [{ x: 0, y: 0 }, { x: outW - 1, y: 0 }, { x: outW - 1, y: outH - 1 }, { x: 0, y: outH - 1 }];
+    const H = getPerspective(dst, [tl, tr, br, bl]); // dest -> source
+    const sctx2 = srcCanvas.getContext("2d", { willReadFrequently: true });
+    const src = sctx2.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+    const sw = srcCanvas.width, sh = srcCanvas.height, sd = src.data;
+    const dest = octx.createImageData ? new ImageData(outW, outH) : (() => { const c = document.createElement("canvas"); c.width = outW; c.height = outH; return c.getContext("2d").createImageData(outW, outH); })();
+    const dd = dest.data;
+    for (let y = 0; y < outH; y++) {
+      for (let x = 0; x < outW; x++) {
+        const p = applyH(H, x, y);
+        const sx = p.x, sy = p.y;
+        const i = (y * outW + x) * 4;
+        if (sx < 0 || sy < 0 || sx >= sw - 1 || sy >= sh - 1) {
+          dd[i] = dd[i + 1] = dd[i + 2] = 255; dd[i + 3] = 255;
+          continue;
+        }
+        const x0 = sx | 0, y0 = sy | 0;
+        const fx = sx - x0, fy = sy - y0;
+        const x1 = x0 + 1, y1 = y0 + 1;
+        const i00 = (y0 * sw + x0) * 4, i10 = (y0 * sw + x1) * 4;
+        const i01 = (y1 * sw + x0) * 4, i11 = (y1 * sw + x1) * 4;
+        for (let c = 0; c < 3; c++) {
+          const v = (sd[i00 + c] * (1 - fx) + sd[i10 + c] * fx) * (1 - fy) +
+                    (sd[i01 + c] * (1 - fx) + sd[i11 + c] * fx) * fy;
+          dd[i + c] = v;
+        }
+        dd[i + 3] = 255;
+      }
+    }
+    return dest;
+  }
+
+  /* ---------------- enhance ---------------- */
+  function enhance(srcData, mode) {
+    const w = srcData.width, h = srcData.height;
+    const outD = new ImageData(w, h);
+    const s = srcData.data, d = outD.data;
+    if (mode === "color") {
+      for (let i = 0; i < s.length; i += 4) {
+        d[i] = clamp(s[i] * 1.05, 0, 255);
+        d[i + 1] = clamp(s[i + 1] * 1.05, 0, 255);
+        d[i + 2] = clamp(s[i + 2] * 1.05, 0, 255);
+        d[i + 3] = 255;
+      }
+      return outD;
+    }
+    // luminance
+    const g = new Float32Array(w * h);
+    for (let i = 0, p = 0; i < g.length; i++, p += 4) g[i] = s[p] * 0.299 + s[p + 1] * 0.587 + s[p + 2] * 0.114;
+    if (mode === "paper") {
+      // simple background flatten: divide by blurred luminance
+      const bg = Float32Array.from(g);
+      blurInPlace(bg, w, h, 12);
+      for (let i = 0, p = 0; i < g.length; i++, p += 4) {
+        const n = Math.min(1.15, g[i] / (bg[i] + 8));
+        let L = clamp(Math.pow(n, 0.85) * 255, 0, 255);
+        if (L > 210) L = 255;
+        const k = g[i] < 1 ? 1 : L / g[i];
+        d[p] = clamp(s[p] * k, 0, 255);
+        d[p + 1] = clamp(s[p + 1] * k, 0, 255);
+        d[p + 2] = clamp(s[p + 2] * k, 0, 255);
+        d[p + 3] = 255;
+      }
+      return outD;
+    }
+    // bw otsu
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < g.length; i++) hist[g[i] | 0]++;
+    const total = g.length;
+    let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+    let sumB = 0, wB = 0, best = 0, thr = 127;
+    for (let t = 0; t < 256; t++) {
+      wB += hist[t]; if (!wB) continue;
+      const wF = total - wB; if (!wF) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB, mF = (sum - sumB) / wF;
+      const between = wB * wF * (mB - mF) * (mB - mF);
+      if (between > best) { best = between; thr = t; }
+    }
+    for (let i = 0, p = 0; i < g.length; i++, p += 4) {
+      const v = g[i] > thr ? 255 : 0;
+      d[p] = d[p + 1] = d[p + 2] = v; d[p + 3] = 255;
+    }
+    return outD;
+  }
+
+  /* ---------------- editor view ---------------- */
+  function layoutStage() {
+    const wrap = stage.parentElement;
+    const cw = wrap.clientWidth, ch = wrap.clientHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    stage.width = Math.round(cw * dpr);
+    stage.height = Math.round(ch * dpr);
+    stage.style.width = cw + "px";
+    stage.style.height = ch + "px";
+    sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (!state.src) return;
+    const scale = Math.min(cw / state.srcW, ch / state.srcH);
+    const dw = state.srcW * scale, dh = state.srcH * scale;
+    const x = (cw - dw) / 2, y = (ch - dh) / 2;
+    state.view = { x, y, scale, dw, dh };
+    drawEditor();
+  }
+  function imgToView(p) {
+    return { x: state.view.x + p.x * state.view.scale, y: state.view.y + p.y * state.view.scale };
+  }
+  function viewToImg(p) {
+    return {
+      x: clamp((p.x - state.view.x) / state.view.scale, 0, state.srcW - 1),
+      y: clamp((p.y - state.view.y) / state.view.scale, 0, state.srcH - 1)
+    };
+  }
+  function drawEditor() {
+    const cw = stage.clientWidth, ch = stage.clientHeight;
+    sctx.clearRect(0, 0, cw, ch);
+    if (!state.src) return;
+    const { x, y, dw, dh } = state.view;
+    sctx.drawImage(state.src, x, y, dw, dh);
+    const q = state.corners.map(imgToView);
+    sctx.save();
+    // dim outside
+    sctx.fillStyle = "rgba(0,0,0,0.45)";
+    sctx.beginPath();
+    sctx.rect(0, 0, cw, ch);
+    sctx.moveTo(q[0].x, q[0].y);
+    sctx.lineTo(q[1].x, q[1].y);
+    sctx.lineTo(q[2].x, q[2].y);
+    sctx.lineTo(q[3].x, q[3].y);
+    sctx.closePath();
+    sctx.fill("evenodd");
+    // quad
+    sctx.strokeStyle = "#e23b2e";
+    sctx.lineWidth = 2.5;
+    sctx.beginPath();
+    sctx.moveTo(q[0].x, q[0].y);
+    q.forEach((p, i) => { if (i) sctx.lineTo(p.x, p.y); });
+    sctx.closePath();
+    sctx.stroke();
+    const labels = ["TL", "TR", "BR", "BL"];
+    q.forEach((p, i) => {
+      sctx.beginPath();
+      sctx.fillStyle = "#fff";
+      sctx.strokeStyle = "#e23b2e";
+      sctx.lineWidth = 3;
+      sctx.arc(p.x, p.y, 13, 0, Math.PI * 2);
+      sctx.fill();
+      sctx.stroke();
+      sctx.fillStyle = "#111";
+      sctx.font = "700 9px -apple-system,sans-serif";
+      sctx.textAlign = "center";
+      sctx.textBaseline = "middle";
+      sctx.fillText(labels[i], p.x, p.y);
+    });
+    sctx.restore();
+  }
+
+  function pointerPos(ev) {
+    const r = stage.getBoundingClientRect();
+    const t = ev.touches ? ev.touches[0] : ev;
+    return { x: t.clientX - r.left, y: t.clientY - r.top };
+  }
+  function nearestHandle(p) {
+    let best = -1, bd = 28;
+    state.corners.forEach((c, i) => {
+      const v = imgToView(c);
+      const d = Math.hypot(v.x - p.x, v.y - p.y);
+      if (d < bd) { bd = d; best = i; }
+    });
+    return best;
+  }
+  stage.addEventListener("pointerdown", (ev) => {
+    if (!state.src) return;
+    stage.setPointerCapture(ev.pointerId);
+    const p = pointerPos(ev);
+    const i = nearestHandle(p);
+    if (i >= 0) state.drag = i;
+  });
+  stage.addEventListener("pointermove", (ev) => {
+    if (state.drag == null) return;
+    const p = viewToImg(pointerPos(ev));
+    state.corners[state.drag] = p;
+    drawEditor();
+  });
+  function endDrag() { state.drag = null; }
+  stage.addEventListener("pointerup", endDrag);
+  stage.addEventListener("pointercancel", endDrag);
+
+  /* ---------------- pipeline ---------------- */
+  async function openFile(file) {
+    if (!file) return;
+    setBusy(true, "Membaca foto…");
+    show("editor");
+    try {
+      const c = await fileToCanvas(file);
+      // cap source for memory
+      const maxS = 2200;
+      if (Math.max(c.width, c.height) > maxS) {
+        const k = maxS / Math.max(c.width, c.height);
+        const n = document.createElement("canvas");
+        n.width = Math.round(c.width * k);
+        n.height = Math.round(c.height * k);
+        n.getContext("2d").drawImage(c, 0, 0, n.width, n.height);
+        state.src = n;
+      } else state.src = c;
+      state.srcW = state.src.width;
+      state.srcH = state.src.height;
+      setBusy(true, "Mendeteksi dokumen…");
+      await yieldFrame();
+      state.corners = detectDocument(state.src);
+      layoutStage();
+      $("statusLine").textContent = "Geser sudut bila perlu";
+    } catch (e) {
+      toast("Gagal membaca foto");
+      show("home");
+    } finally {
+      setBusy(false);
+    }
+  }
+  function yieldFrame() { return new Promise((r) => requestAnimationFrame(() => r())); }
+
+  function applyCrop() {
+    if (!state.src) return;
+    setBusy(true, "Merapikan halaman…");
+    show("preview");
+    requestAnimationFrame(() => {
+      try {
+        state.warped = warpToCanvas(state.src, state.corners, 1600);
+        renderPreview();
+      } catch (e) {
+        toast("Gagal crop. Coba geser sudut lagi.");
+        show("editor");
+      } finally {
+        setBusy(false);
+      }
+    });
+  }
+  function renderPreview() {
+    if (!state.warped) return;
+    const enh = enhance(state.warped, state.mode);
+    out.width = enh.width;
+    out.height = enh.height;
+    octx.putImageData(enh, 0, 0);
+  }
+
+  function canvasToBlob(canvas, type, q) {
+    return new Promise((res) => canvas.toBlob(res, type, q));
+  }
+  async function keepPage() {
+    const blob = await canvasToBlob(out, "image/jpeg", 0.92);
+    const url = URL.createObjectURL(blob);
+    state.pages.push({ url, blob, w: out.width, h: out.height });
+    renderPages();
+    show("home");
+    toast("Halaman disimpan");
+    state.src = null;
+  }
+  function renderPages() {
+    $("pageCount").textContent = state.pages.length;
+    $("btnPdf").disabled = state.pages.length === 0;
+    $("btnSaveLast").disabled = state.pages.length === 0;
+    $("emptyPages").style.display = state.pages.length ? "none" : "block";
+    const grid = $("pageGrid");
+    grid.innerHTML = "";
+    state.pages.forEach((p, i) => {
+      const card = document.createElement("div");
+      card.className = "page-card";
+      card.innerHTML = `<img src="${p.url}" alt="Halaman ${i + 1}" /><div class="meta"><span>Hal. ${i + 1}</span><span>${p.w}×${p.h}</span></div>`;
+      const del = document.createElement("button");
+      del.className = "del"; del.textContent = "×";
+      del.onclick = () => {
+        URL.revokeObjectURL(p.url);
+        state.pages.splice(i, 1);
+        renderPages();
+      };
+      card.appendChild(del);
+      grid.appendChild(card);
+    });
+  }
+
+  async function downloadCurrent() {
+    const a = document.createElement("a");
+    a.href = out.toDataURL("image/jpeg", 0.92);
+    a.download = `pindai-${Date.now()}.jpg`;
+    a.click();
+  }
+  async function shareCurrent() {
+    const blob = await canvasToBlob(out, "image/jpeg", 0.92);
+    const file = new File([blob], "pindai.jpg", { type: "image/jpeg" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: "Pindai" }); return; } catch {}
+    }
+    downloadCurrent();
+  }
+  async function downloadLast() {
+    const p = state.pages[state.pages.length - 1];
+    if (!p) return;
+    const a = document.createElement("a");
+    a.href = p.url; a.download = `pindai-${state.pages.length}.jpg`; a.click();
+  }
+  async function exportPdf() {
+    if (!state.pages.length) return;
+    // Minimal PDF (JPEG pages) without library
+    try {
+      const pdf = await buildPdf(state.pages);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(pdf);
+      a.download = `pindai-${Date.now()}.pdf`;
+      a.click();
+      toast("PDF siap diunduh");
+    } catch {
+      toast("Gagal buat PDF, unduh per halaman saja");
+    }
+  }
+
+  /* tiny PDF writer for JPEG pages */
+  async function buildPdf(pages) {
+    const chunks = [];
+    const enc = new TextEncoder();
+    const push = (s) => chunks.push(typeof s === "string" ? enc.encode(s) : s);
+    const objs = [];
+    const addObj = (body) => { objs.push(body); return objs.length; };
+
+    const pageObjs = [];
+    for (const p of pages) {
+      const bytes = new Uint8Array(await p.blob.arrayBuffer());
+      // A4-ish box in points from pixel size at 72dpi scaled to fit 595x842
+      const maxW = 595, maxH = 842;
+      const k = Math.min(maxW / p.w, maxH / p.h);
+      const w = p.w * k, h = p.h * k;
+      const imgId = addObj(null); // placeholder
+      pageObjs.push({ imgId, w, h, bytes });
+    }
+    // We'll assemble with offsets later — simpler approach:
+    return buildPdf2(pages);
+  }
+  async function buildPdf2(pages) {
+    const encoder = new TextEncoder();
+    const parts = [];
+    const offsets = [0];
+    let pos = 0;
+    const add = (u8) => { parts.push(u8); pos += u8.length; };
+    const addStr = (s) => add(encoder.encode(s));
+    addStr("%PDF-1.4\n");
+    const objOff = [];
+    const jpegObjs = [];
+    for (const p of pages) {
+      jpegObjs.push(new Uint8Array(await p.blob.arrayBuffer()));
+    }
+    const N = pages.length;
+    // 1 catalog, 2 pages, 3..2+N page, then images, then contents
+    const catalogId = 1, pagesId = 2;
+    const pageIds = pages.map((_, i) => 3 + i);
+    const imgIds = pages.map((_, i) => 3 + N + i);
+    const contentIds = pages.map((_, i) => 3 + 2 * N + i);
+    const totalObjs = 2 + 3 * N;
+
+    const bodies = new Array(totalObjs + 1);
+    bodies[catalogId] = `<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
+    bodies[pagesId] = `<< /Type /Pages /Kids [${pageIds.map((id) => id + " 0 R").join(" ")}] /Count ${N} >>`;
+    pages.forEach((p, i) => {
+      const maxW = 595, maxH = 842;
+      const k = Math.min(maxW / p.w, maxH / p.h);
+      const w = +(p.w * k).toFixed(2), h = +(p.h * k).toFixed(2);
+      bodies[pageIds[i]] = `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${w} ${h}] /Resources << /XObject << /Im0 ${imgIds[i]} 0 R >> >> /Contents ${contentIds[i]} 0 R >>`;
+      bodies[contentIds[i]] = streamObj(`q ${w} 0 0 ${h} 0 0 cm /Im0 Do Q\n`);
+      bodies[imgIds[i]] = jpegObj(jpegObjs[i], p.w, p.h);
+    });
+    for (let i = 1; i <= totalObjs; i++) {
+      objOff[i] = pos;
+      addStr(`${i} 0 obj\n`);
+      if (typeof bodies[i] === "string") addStr(bodies[i] + "\nendobj\n");
+      else { add(bodies[i]); addStr("\nendobj\n"); }
+    }
+    const xref = pos;
+    addStr(`xref\n0 ${totalObjs + 1}\n`);
+    addStr("0000000000 65535 f \n");
+    for (let i = 1; i <= totalObjs; i++) addStr(String(objOff[i]).padStart(10, "0") + " 00000 n \n");
+    addStr(`trailer\n<< /Size ${totalObjs + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+    let len = 0; parts.forEach((p) => len += p.length);
+    const outb = new Uint8Array(len);
+    let o = 0; parts.forEach((p) => { outb.set(p, o); o += p.length; });
+    return new Blob([outb], { type: "application/pdf" });
+  }
+  function streamObj(text) {
+    const enc = new TextEncoder();
+    const data = enc.encode(text);
+    const head = enc.encode(`<< /Length ${data.length} >>\nstream\n`);
+    const tail = enc.encode("\nendstream");
+    const u = new Uint8Array(head.length + data.length + tail.length);
+    u.set(head, 0); u.set(data, head.length); u.set(tail, head.length + data.length);
+    return u;
+  }
+  function jpegObj(bytes, w, h) {
+    const enc = new TextEncoder();
+    const head = enc.encode(`<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`);
+    const tail = enc.encode("\nendstream");
+    const u = new Uint8Array(head.length + bytes.length + tail.length);
+    u.set(head, 0); u.set(bytes, head.length); u.set(tail, head.length + bytes.length);
+    return u;
+  }
+
+  /* ---------------- events ---------------- */
+  $("btnCamera").onclick = () => $("fileCam").click();
+  $("btnGallery").onclick = () => $("fileGal").click();
+  $("fileCam").onchange = (e) => { openFile(e.target.files[0]); e.target.value = ""; };
+  $("fileGal").onchange = (e) => { openFile(e.target.files[0]); e.target.value = ""; };
+  $("btnCancelEdit").onclick = () => { state.src = null; show("home"); };
+  $("btnApply").onclick = applyCrop;
+  $("btnRedetect").onclick = () => {
+    if (!state.src) return;
+    setBusy(true, "Mendeteksi dokumen…");
+    requestAnimationFrame(() => {
+      state.corners = detectDocument(state.src);
+      drawEditor();
+      setBusy(false);
+    });
+  };
+  $("btnResetQuad").onclick = () => {
+    if (!state.src) return;
+    state.corners = defaultQuad(state.srcW, state.srcH);
+    drawEditor();
+  };
+  $("btnBackEdit").onclick = () => show("editor");
+  $("btnKeep").onclick = keepPage;
+  $("btnDownloadOne").onclick = downloadCurrent;
+  $("btnShare").onclick = shareCurrent;
+  $("btnSaveLast").onclick = downloadLast;
+  $("btnPdf").onclick = exportPdf;
+  $("btnClear").onclick = () => {
+    state.pages.forEach((p) => URL.revokeObjectURL(p.url));
+    state.pages = [];
+    renderPages();
+  };
+  document.querySelectorAll(".chip").forEach((ch) => {
+    ch.onclick = () => {
+      document.querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
+      ch.classList.add("on");
+      state.mode = ch.dataset.mode;
+      renderPreview();
+    };
+  });
+  $("helpBtn").onclick = () => {
+    alert("Cara pakai Pindai:\n\n1) Salin file pindai.html ke HP (Files / Drive / WhatsApp).\n2) Buka dengan Chrome atau Safari.\n3) Ambil Foto atau pilih dari Galeri.\n4) Geser 4 titik ke sudut kertas, lalu Terapkan crop.\n5) Pilih mode Warna / Kertas / Hitam putih.\n6) Simpan halaman, lalu Ekspor PDF kalau sudah lengkap.\n\nSemua proses di perangkatmu. Tidak perlu instal aplikasi.");
+  };
+  window.addEventListener("resize", () => { if (screens.editor.classList.contains("active")) layoutStage(); });
+
+  renderPages();
+})();
+</script>
+</body>
+</html>
